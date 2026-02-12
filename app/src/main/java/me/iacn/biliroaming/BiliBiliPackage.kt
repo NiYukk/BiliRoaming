@@ -49,8 +49,9 @@ class BiliBiliPackage constructor(private val mClassLoader: ClassLoader, mContex
     val rxGeneralResponseClass by Weak { "com.bilibili.okretro.call.rxjava.RxGeneralResponse" from mClassLoader }
     val fastJsonClass by Weak { mHookInfo.fastJson.class_ from mClassLoader }
     val bangumiUniformSeasonClass by Weak { mHookInfo.bangumiSeason from mClassLoader }
-    val sectionClass by Weak { mHookInfo.section.class_ from mClassLoader }
-    val viewHolderClass by Weak { mHookInfo.section.viewHolder from mClassLoader }
+    val kingPositionComponentClass by Weak { mHookInfo.autoLike.kingPositionComponent.class_ from mClassLoader }
+    val storyAbsControllerClass by Weak { mHookInfo.autoLike.storyAbsController.class_ from mClassLoader }
+    val storyDetailClass by Weak { "com.bilibili.video.story.StoryDetail" from mClassLoader }
     val retrofitResponseClass by Weak { mHookInfo.retrofitResponse from mClassLoader }
     val themeHelperClass by Weak { mHookInfo.themeHelper.class_ from mClassLoader }
     val themeIdHelperClass by Weak { mHookInfo.themeIdHelper.class_ from mClassLoader }
@@ -174,6 +175,16 @@ class BiliBiliPackage constructor(private val mClassLoader: ClassLoader, mContex
     val liveRTCSourceServiceImplClass by Weak { mHookInfo.liveQuality.sourceService.class_ from mClassLoader }
     val defaultRequestInterceptClass by Weak { mHookInfo.liveQuality.interceptor.class_ from mClassLoader }
     val httpUrlClass by Weak { mHookInfo.okHttp.httpUrl.class_ from mClassLoader }
+    val preBuiltConfigClass by Weak { mHookInfo.preBuiltConfig.class_ from mClassLoader }
+    val dataSPClass by Weak { mHookInfo.dataSP.class_ from mClassLoader }
+    val fastjsonFieldAnnotation by Weak { "com.alibaba.fastjson.annotation.JSONField" from mClassLoader }
+    val gsonFieldAnnotation by Weak { "com.google.gson.annotations.SerializedName" from mClassLoader }
+    val pegasusParserClass by Weak { mHookInfo.pegasusParser from mClassLoader }
+    val resolveClientCompanionClass by Weak { mHookInfo.resolveClientCompanion.class_ from mClassLoader }
+    val videoDownloadEntryClass by Weak { "com.bilibili.videodownloader.model.VideoDownloadEntry" from mClassLoader }
+    val rewardAdClass by Weak { mHookInfo.rewardAd.class_ from mClassLoader }
+    val tripleSpeedServiceClass by Weak { "com.bilibili.ship.theseus.united.player.TripleSpeedService\$runOldTripleSpeed\$1\$listener\$1\$onLongPress\$1" from mClassLoader }
+    val storyPagerPlayerClass by Weak { mHookInfo.storyPagerPlayer.class_ from mClassLoader }
 
     // for v8.17.0+
     val useNewMossFunc = instance.viewMossClass?.declaredMethods?.any {
@@ -232,11 +243,11 @@ class BiliBiliPackage constructor(private val mClassLoader: ClassLoader, mContex
 
     fun requestField() = mHookInfo.okHttp.response.request.orNull
 
-    fun likeMethod() = mHookInfo.section.like.orNull
+    fun componentMapField() = mHookInfo.autoLike.kingPositionComponent.componentMap.orNull
 
-    fun bindViewMethod() = mHookInfo.section.bindView.orNull
+    fun setMDataMethod() = mHookInfo.autoLike.storyAbsController.setMData.orNull
 
-    fun getRootMethod() = mHookInfo.section.getRoot.orNull
+    fun getMPlayerMethod() = mHookInfo.autoLike.storyAbsController.getMPlayer.orNull
 
     fun themeName() = mHookInfo.themeName.field.orNull
 
@@ -348,6 +359,19 @@ class BiliBiliPackage constructor(private val mClassLoader: ClassLoader, mContex
     fun interceptMethod() = mHookInfo.liveQuality.interceptor.intercept.orNull
 
     fun httpUrlParseMethod() = mHookInfo.okHttp.httpUrl.parse.orNull
+
+    fun getPreBuiltConfigMethod() = mHookInfo.preBuiltConfig.get.orNull
+
+    fun getDataSPMethod() = mHookInfo.dataSP.get.orNull
+
+    fun buildCommonResolverParamsMethod() =
+        mHookInfo.resolveClientCompanion.buildCommonResolverParams.orNull
+
+    fun setExtraContentMethod() = mHookInfo.gCommonResolverParams.setExtraContent.orNull
+
+    fun rewardFlag() = mHookInfo.rewardAd.rewardFlag.orNull
+
+    fun addVideo() = mHookInfo.storyPagerPlayer.addVideo.orNull
 
     private fun readHookInfo(context: Context): Configs.HookInfo {
         try {
@@ -793,88 +817,123 @@ class BiliBiliPackage constructor(private val mClassLoader: ClassLoader, mContex
                     }?.name ?: return@class_
             }
             themeName = themeName {
-                val themeNameClassRegex = Regex("""^tv\.danmaku\.bili\.ui\.garb\.\w?$""")
-                val themeNameClass = classesList.filter {
-                    it.startsWith("tv.danmaku.bili.ui.garb") && it.contains(themeNameClassRegex)
-                }.map {
-                    it.findClass(classloader)
-                }.firstOrNull { c ->
-                    c.declaredFields.count {
-                        Modifier.isStatic(it.modifiers) && it.type == Map::class.java
-                    } == 1
-                }
+                val mainGarbClass = dexHelper.findMethodUsingString(
+                    ".garb.GARB_CHANGE",
+                    false,
+                    -1,
+                    -1,
+                    null,
+                    -1,
+                    null,
+                    null,
+                    null,
+                    true
+                ).asSequence().mapNotNull {
+                    dexHelper.decodeMethodIndex(it)?.declaringClass
+                }.firstOrNull() ?: return@themeName
+                val id2NameIndex = dexHelper.findMethodUsingString(
+                    "white",
+                    false,
+                    -1,
+                    1,
+                    null,
+                    dexHelper.encodeClassIndex(mainGarbClass),
+                    null,
+                    null,
+                    null,
+                    true
+                ).asSequence().firstOrNull() ?: return@themeName
+                val themeNameClass = dexHelper.findMethodInvoking(
+                    id2NameIndex,
+                    dexHelper.encodeClassIndex(Map::class.java),
+                    0,
+                    null,
+                    -1,
+                    null,
+                    null,
+                    null,
+                    true
+                ).asSequence().mapNotNull {
+                    dexHelper.decodeMethodIndex(it)?.declaringClass
+                }.firstOrNull() ?: return@themeName
                 class_ = class_ {
-                    name = themeNameClass?.name ?: return@class_
+                    name = themeNameClass.name
                 }
                 field = field {
-                    name = themeNameClass?.declaredFields?.firstOrNull {
+                    name = themeNameClass.declaredFields.firstOrNull {
                         it.type == Map::class.java
                                 && Modifier.isStatic(it.modifiers)
                     }?.name ?: return@field
                 }
             }
-            section = section {
-                val kingPositionComponentClass = dexHelper.findMethodUsingString(
-                    "LikeClicked(view=",
-                    false,
-                    -1,
-                    -1,
-                    null,
-                    -1,
-                    null,
-                    null,
-                    null,
-                    true
-                ).asSequence().firstNotNullOfOrNull {
-                    dexHelper.decodeMethodIndex(it)?.declaringClass?.run {
-                        var outerClass = this
-                        while (outerClass.declaringClass != null) {
-                            outerClass = outerClass.declaringClass!!
+            autoLike = autoLike {
+                kingPositionComponent = kingPositionComponent {
+                    val kingPositionComponentClass = dexHelper.findMethodUsingString(
+                        "LikeClicked(view=",
+                        false,
+                        -1,
+                        -1,
+                        null,
+                        -1,
+                        null,
+                        null,
+                        null,
+                        true
+                    ).asSequence().firstNotNullOfOrNull {
+                        dexHelper.decodeMethodIndex(it)?.declaringClass?.run {
+                            var outerClass = this
+                            while (outerClass.declaringClass != null) {
+                                outerClass = outerClass.declaringClass!!
+                            }
+                            outerClass
                         }
-                        outerClass
-                    }
-                }
-                val genericInterface = kingPositionComponentClass?.genericInterfaces?.getOrNull(0)
-                val parameterType = (genericInterface as? ParameterizedType)?.actualTypeArguments?.getOrNull(0)
-                val viewHolderClass = if (parameterType is ParameterizedType) {
-                    parameterType.rawType
-                } else {
-                    parameterType
-                }?.let { it as? Class<*> }
-                val getRootMethod = viewHolderClass?.declaredMethods?.firstOrNull {
-                    it.returnType == View::class.java && it.parameterCount == 0
-                }
-                val bindViewMethod = kingPositionComponentClass?.declaredMethods?.firstOrNull {
-                    it.isPublic && it.parameterCount == 2
-                            && it.parameterTypes[0] == viewHolderClass
-                }
-                if (kingPositionComponentClass != null && viewHolderClass != null && bindViewMethod != null && getRootMethod != null) {
+                    } ?: return@kingPositionComponent
+                    val componentMapField = kingPositionComponentClass.declaredFields.firstOrNull {
+                        it.type == Map::class.java
+                    } ?: return@kingPositionComponent
                     class_ = class_ { name = kingPositionComponentClass.name }
-                    viewHolder = class_ { name = viewHolderClass.name }
-                    bindView = method { name = bindViewMethod.name }
-                    getRoot = method { name = getRootMethod.name }
-                    return@section
+                    componentMap = field { name = componentMapField.name }
                 }
-
-                val sectionClass = dexHelper.findMethodUsingString(
-                    "ActionViewHolder",
-                    false,
-                    -1,
-                    -1,
-                    null,
-                    -1,
-                    null,
-                    null,
-                    null,
-                    true
-                ).firstOrNull()?.let {
-                    dexHelper.decodeMethodIndex(it)
-                }?.declaringClass ?: return@section
-                val likeMethod = sectionClass?.superclass?.declaredMethods?.find {
-                    it.parameterTypes.size == 1 && it.returnType == Void.TYPE && !it.isFinal
-                } ?: return@section
-                class_ = class_ { name = sectionClass.name }
-                like = method { name = likeMethod.name }
+                storyAbsController = storyAbsController {
+                    val storyAbsControllerClass = dexHelper.findMethodUsingString(
+                        "notify player state fail",
+                        false,
+                        -1,
+                        -1,
+                        null,
+                        -1,
+                        null,
+                        null,
+                        null,
+                        true
+                    ).asSequence().mapNotNull {
+                        dexHelper.decodeMethodIndex(it)?.declaringClass
+                    }.firstOrNull() ?: return@storyAbsController
+                    val storyPagerPlayerInterface = dexHelper.findMethodUsingString(
+                        " play item but is inactivate",
+                        false,
+                        -1,
+                        -1,
+                        null,
+                        -1,
+                        null,
+                        null,
+                        null,
+                        true
+                    ).asSequence().mapNotNull {
+                        dexHelper.decodeMethodIndex(it)?.declaringClass?.interfaces?.getOrNull(0)
+                    }.firstOrNull() ?: return@storyAbsController
+                    val storyDetailClass = "com.bilibili.video.story.StoryDetail".from(classloader)
+                    val setMDataMethod = storyAbsControllerClass.declaredMethods.firstOrNull {
+                        it.returnType == Void.TYPE && it.parameterCount == 1 && it.parameterTypes[0] == storyDetailClass
+                    } ?: return@storyAbsController
+                    val getMPlayerMethod = storyAbsControllerClass.declaredMethods.firstOrNull {
+                        storyPagerPlayerInterface.isAssignableFrom(it.returnType) && it.parameterCount == 0
+                    } ?: return@storyAbsController
+                    class_ = class_ { name = storyAbsControllerClass.name }
+                    setMData = method { name = setMDataMethod.name }
+                    getMPlayer = method { name = getMPlayerMethod.name }
+                }
             }
             signQuery = signQuery {
                 val signedQueryClass =
@@ -1891,7 +1950,7 @@ class BiliBiliPackage constructor(private val mClassLoader: ClassLoader, mContex
             }.let { playerQualityService.addAll(it.toList()) }
             playerSettingHelper = playerSettingHelper {
                 val getDefaultQnMethod = dexHelper.findMethodUsingString(
-                    "get free data failed",
+                    "quality settings:",
                     false,
                     -1,
                     -1,
@@ -2224,6 +2283,146 @@ class BiliBiliPackage constructor(private val mClassLoader: ClassLoader, mContex
                     class_ = class_ { name = interceptorClass.name }
                     intercept = method { name = interceptMethod.name }
                 }
+            }
+            preBuiltConfig = preBuiltConfig {
+                val getMap = dexHelper.findMethodUsingString(
+                    "/config.json",
+                    false,
+                    -1,
+                    -1,
+                    null,
+                    -1,
+                    null,
+                    null,
+                    null,
+                    true
+                ).asSequence().mapNotNull { dexHelper.decodeMethodIndex(it) }.firstOrNull()
+                    ?: return@preBuiltConfig
+                class_ = class_ { name = getMap.declaringClass.name }
+                get = method { name = getMap.name }
+            }
+            dataSP = dataSP {
+                val spxClass =
+                    ("com.bilibili.lib.blkv.SharedPrefX" from classloader) ?: return@dataSP
+                val blkvClass = ("com.bilibili.lib.blkv.BLKV" from classloader) ?: return@dataSP
+                val getBLSP = runCatchingOrNull {
+                    blkvClass.getDeclaredMethod(
+                        "getBLSharedPreferences",
+                        Context::class.java,
+                        File::class.java,
+                        Boolean::class.javaPrimitiveType,
+                        Int::class.javaPrimitiveType
+                    )
+                } ?: return@dataSP
+                val getDataSP = dexHelper.findMethodInvoked(
+                    dexHelper.encodeMethodIndex(getBLSP),
+                    dexHelper.encodeClassIndex(spxClass),
+                    -1,
+                    null,
+                    -1,
+                    null,
+                    null,
+                    null,
+                    false
+                ).asSequence().mapNotNull {
+                    dexHelper.decodeMethodIndex(it)
+                }.firstOrNull {
+                    Log.d(it)
+                    it.declaringClass.name.startsWith("com.bilibili.lib.blconfig.internal.TypedContext")
+                } ?: return@dataSP
+                class_ = class_ { name = getDataSP.declaringClass.name }
+                get = method { name = getDataSP.name }
+            }
+            pegasusParser = class_ {
+                val getPegasusParser = dexHelper.findMethodUsingString(
+                    "[Pegasus]PegasusParser",
+                    false,
+                    -1,
+                    -1,
+                    null,
+                    -1,
+                    null,
+                    null,
+                    null,
+                    true
+                ).asSequence().mapNotNull { dexHelper.decodeMethodIndex(it) }.firstOrNull()
+                    ?: return@class_
+                name = getPegasusParser.declaringClass.name
+            }
+            resolveClientCompanion = resolveClientCompanion {
+                val resolveClientClass = dexHelper.findMethodUsingString(
+                    "Invalid segment id: %s, segment list size:%s",
+                    false,
+                    -1,
+                    -1,
+                    null,
+                    -1,
+                    null,
+                    null,
+                    null,
+                    true
+                ).asSequence().firstNotNullOfOrNull {
+                    dexHelper.decodeMethodIndex(it)?.declaringClass
+                } ?: return@resolveClientCompanion
+                val resolveClientCompanionClass = "${resolveClientClass.name}\$a".from(classloader)
+                    ?: return@resolveClientCompanion
+                val paramsClass =
+                    "com.bilibili.app.gemini.base.player.GeminiCommonResolverParams".from(
+                        classloader
+                    )
+                val videoDownloadEntryClass =
+                    "com.bilibili.videodownloader.model.VideoDownloadEntry".from(classloader)
+                val buildParamsMethod = resolveClientCompanionClass.declaredMethods.firstOrNull {
+                    it.returnType == paramsClass && it.parameterCount == 1 && it.parameterTypes[0] == videoDownloadEntryClass
+                } ?: return@resolveClientCompanion
+                class_ = class_ { name = resolveClientCompanionClass.name }
+                buildCommonResolverParams = method { name = buildParamsMethod.name }
+            }
+            gCommonResolverParams = gCommonResolverParams {
+                val commonResolverParamsClass =
+                    "com.bilibili.app.gemini.base.player.GeminiCommonResolverParams".from(
+                        classloader
+                    ) ?: return@gCommonResolverParams
+                val setExtraContentMethod = commonResolverParamsClass.declaredMethods?.firstOrNull {
+                    it.returnType == Void.TYPE && it.parameterCount == 1 && it.parameterTypes[0] == Map::class.java
+                } ?: return@gCommonResolverParams
+                class_ = class_ { name = commonResolverParamsClass.name }
+                setExtraContent = method { name = setExtraContentMethod.name }
+            }
+            rewardAd = rewardAd {
+                val rewardAdActivityClass =
+                    "com.bilibili.ad.reward.RewardAdActivity".from(classloader) ?: return@rewardAd
+
+                class_ = class_ { name = rewardAdActivityClass.name }
+                val rewardFlagField =
+                    rewardAdActivityClass.declaredFields.filter { it.type == Boolean::class.javaPrimitiveType }
+                        .getOrNull(1) ?: return@rewardAd
+
+                rewardFlag = field { name = rewardFlagField.name }
+
+            }
+            storyPagerPlayer = storyPagerPlayer {
+                val storyPagerPlayerClass =
+                    "com.bilibili.video.story.player.StoryPagerPlayer".from(classloader) ?: return@storyPagerPlayer
+
+                class_ = class_ { name = storyPagerPlayerClass.name }
+
+                val addVideoMethod = dexHelper.findMethodUsingString(
+                    " add ",
+                    false,
+                    -1,
+                    -1,
+                    null,
+                    dexHelper.encodeClassIndex(storyPagerPlayerClass),
+                    null,
+                    longArrayOf(dexHelper.encodeClassIndex(List::class.java)),
+                    null,
+                    true
+                ).asSequence().mapNotNull {
+                    dexHelper.decodeMethodIndex(it)
+                }.firstOrNull() ?: return@storyPagerPlayer
+
+                addVideo = method { name = addVideoMethod.name }
             }
 
             dexHelper.close()

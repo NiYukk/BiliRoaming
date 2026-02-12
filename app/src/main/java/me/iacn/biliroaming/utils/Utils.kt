@@ -24,10 +24,12 @@ import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.lang.ref.WeakReference
+import java.lang.reflect.Field
 import java.lang.reflect.Proxy
 import java.math.BigInteger
 import java.net.URL
 import java.util.*
+import java.util.function.Consumer
 import kotlin.math.roundToInt
 import kotlin.reflect.KProperty
 
@@ -335,7 +337,7 @@ fun Window.blurBackground() {
     addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
     attributes.blurBehindRadius = 50
     setBackgroundBlurRadius(50)
-    val blurEnableListener = { enable: Boolean ->
+    val blurEnableListener = Consumer<Boolean> { enable: Boolean ->
         setDimAmount(if (enable) 0.1F else 0.6F)
     }
     decorView.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
@@ -436,4 +438,31 @@ fun Context.inflateLayout(
 
 fun Context.addModuleAssets() {
     resources.assets.callMethod("addAssetPath", XposedInit.modulePath)
+}
+
+@OptIn(ExperimentalStdlibApi::class)
+fun Any.dumpToString(): String {
+    val sb = StringBuilder()
+    sb.append("---- ${this.javaClass.name}@${this.hashCode().toHexString()} dump begin ----\n")
+    fun dumpClassFields(clazz: Class<*>) {
+        clazz.declaredFields.forEach { field ->
+            if (field.isStatic) return@forEach
+            field.isAccessible = true
+            val v = field.get(this)
+            sb.append("${field.name}: $v\n")
+        }
+        clazz.superclass?.let {
+            dumpClassFields(it)
+        }
+    }
+    dumpClassFields(this.javaClass)
+    sb.append("---- ${this.javaClass.name}@${this.hashCode().toHexString()} dump end ----")
+    return sb.toString()
+}
+
+fun Class<*>.findField(filter: (Field) -> Boolean): Field? {
+    return declaredFields.find { field ->
+        field.isAccessible = true
+        filter(field)
+    } ?: superclass?.findField(filter)
 }

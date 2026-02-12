@@ -285,6 +285,11 @@
             android:key="fake_non_multiwindow"
             android:title="@string/fake_non_multiwindow_title"
             android:summary="@string/fake_non_multiwindow_summary"/>
+
+        <Preference
+            android:defaultValue="300"
+            android:key="long_press_speed"
+            android:title="@string/long_press_speed" />
     </PreferenceCategory>
     <PreferenceCategory android:title="@string/pref_backup">
         <Preference
@@ -313,6 +318,16 @@
             android:key="customize_bottom_bar"
             android:summary="@string/customize_bottom_bar_summary"
             android:title="@string/customize_bottom_bar_title" />
+        <SwitchPreference
+            android:dependency="hidden"
+            android:key="skip_reward_ad"
+            android:summary="@string/skip_reward_ad_summary"
+            android:title="@string/skip_reward_ad_title" />
+        <Preference
+            android:dependency="hidden"
+            android:key="purify_story_video_ad"
+            android:summary="@string/purify_story_video_ad_summary"
+            android:title="@string/purify_story_video_ad_title" />
         <SwitchPreference
             android:dependency="hidden"
             android:key="purify_game"

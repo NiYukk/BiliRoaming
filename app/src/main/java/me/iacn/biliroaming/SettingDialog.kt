@@ -109,6 +109,8 @@ class SettingDialog(context: Context) : AlertDialog.Builder(context) {
             findPreference("filter_search")?.onPreferenceClickListener = this
             findPreference("filter_comment")?.onPreferenceClickListener = this
             findPreference("copy_access_key")?.onPreferenceClickListener = this
+            findPreference("purify_story_video_ad")?.onPreferenceClickListener = this
+            findPreference("long_press_speed")?.onPreferenceClickListener = this
             checkCompatibleVersion()
             searchItems = retrieve(preferenceScreen)
             checkUpdate()
@@ -866,6 +868,88 @@ class SettingDialog(context: Context) : AlertDialog.Builder(context) {
             return true
         }
 
+        private fun onPurifyStoryVideoAdClick(): Boolean {
+            AlertDialog.Builder(activity).apply {
+                val tagMap = linkedMapOf(
+                    "ad" to "广告（推荐勾选）",
+                    "short" to "短剧（推荐勾选）",
+                    "shopping" to "购物（推荐勾选）",
+                    "tv" to "电视剧（强烈不推荐勾选，此处仅为视频同款电视剧，勾选后将无法见带有此标签视频！",
+                    "doc" to "纪录片（强烈不推荐勾选，此处仅为视频同款纪录片，勾选后将无法见带有此标签视频！）",
+                    "ent" to "娱乐（强烈不推荐勾选，此处仅为视频同款内容，勾选后将无法见带有此标签视频！）",
+                    "movie" to "电影（强烈不推荐勾选，此处仅为视频同款电影，勾选后将无法见带有此标签视频！）",
+                    "music" to "音乐（强烈不推荐勾选，此处仅为视频同款音乐，勾选后将无法看见带有此标签视频！",
+                    "topic" to "话题（强烈不推荐勾选，此处仅为视频相关话题，勾选后将无法看见带有此标签视频！",
+                )
+
+                val prefKey = "purify_story_video_ad_tags"
+                val oldPurifyAdTags = sPrefs.getStringSet(prefKey, emptySet()) ?: emptySet()
+
+                val keys = tagMap.keys.toList()
+                val values = tagMap.values.toTypedArray()
+
+                val checkedTags = BooleanArray(keys.size) { index ->
+                    keys[index] in oldPurifyAdTags
+                }
+
+                val blockedCount = sPrefs.getInt("purify_story_video_ad_blocked_count", 0)
+
+                setTitle(context.getString(R.string.purify_story_video_ad_title) + "（累计拦截 $blockedCount 条）")
+                setPositiveButton(context.getString(android.R.string.ok)) { _, _ ->
+                    val selected = mutableSetOf<String>()
+                    for (i in keys.indices) {
+                        if (checkedTags[i]) selected.add(keys[i])
+                    }
+                    sPrefs.edit().putStringSet(prefKey, selected).apply()
+                    Toast.makeText(activity, "已保存净化选项，重启客户端生效", Toast.LENGTH_SHORT).show()
+                }
+
+                setNegativeButton(android.R.string.cancel, null)
+
+                setNeutralButton("重置") { _, _ ->
+                    sPrefs.edit().remove(prefKey).apply()
+                }
+
+                setMultiChoiceItems(values, checkedTags) { _, which, isChecked ->
+                    checkedTags[which] = isChecked
+                }
+            }.show()
+            return true
+        }
+
+        private fun onLongPressSpeedClick(): Boolean {
+            AlertDialog.Builder(activity).run {
+                val view = context.inflateLayout(R.layout.seekbar_dialog)
+                val seekBar = view.findViewById<SeekBar>(R.id.seekBar)
+                seekBar.max = 100
+                val tvHint = view.findViewById<TextView>(R.id.tvHint)
+                seekBar.setOnSeekBarChangeListener(object : OnSeekBarChangeListener {
+                    @SuppressLint("SetTextI18n")
+                    override fun onProgressChanged(
+                        seekBar: SeekBar?, progress: Int, fromUser: Boolean
+                    ) {
+                        tvHint.text = "${progress * 10}%"
+                    }
+
+                    override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                    override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+                })
+                val current = prefs.getInt("long_press_speed", 300)
+                @SuppressLint("SetTextI18n")
+                tvHint.text = "${current * 10}%"
+                seekBar.progress = current / 10
+                setTitle(R.string.long_press_speed)
+                setNegativeButton(android.R.string.cancel, null)
+                setPositiveButton(android.R.string.ok) { _, _ ->
+                    prefs.edit().putInt("long_press_speed", seekBar.progress * 10).apply()
+                }
+                setView(view)
+                show()
+
+            }
+            return true
+        }
+
         @Deprecated("Deprecated in Java")
         override fun onPreferenceClick(preference: Preference) = when (preference.key) {
             "version" -> onVersionClick()
@@ -887,6 +971,8 @@ class SettingDialog(context: Context) : AlertDialog.Builder(context) {
             "filter_search" -> onFilterSearchClick()
             "filter_comment" -> onFilterCommentClick()
             "copy_access_key" -> onCopyAccessKeyClick()
+            "purify_story_video_ad" -> onPurifyStoryVideoAdClick()
+            "long_press_speed" -> onLongPressSpeedClick()
             else -> false
         }
     }
